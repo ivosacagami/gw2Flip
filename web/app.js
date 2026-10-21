@@ -128,8 +128,8 @@ function cartaoOrdem(o) {
       <img class="icone" src="${esc(o.img)}" alt="" onerror="this.style.visibility='hidden'">
       <div class="item-nome">
         <h3 title="${esc(o.nome)}">${esc(o.nome)}</h3>
-        ${status}<span class="sub ordem-idade" title="Quando você marcou &quot;Já coloquei&quot;">colocada ${quando(o.criada)}</span>
-        ${o.comprado_em ? `<span class="sub ordem-idade" title="Quando você marcou que a compra encheu">· comprada ${quando(o.comprado_em)}</span>` : ""}
+        ${status}<span class="sub ordem-idade" title="Quando você marcou &quot;Já coloquei&quot;">colocada <span data-desde="${esc(o.criada)}">${quando(o.criada)}</span></span>
+        ${o.comprado_em ? `<span class="sub ordem-idade" title="Quando você marcou que a compra encheu">· comprada <span data-desde="${esc(o.comprado_em)}">${quando(o.comprado_em)}</span></span>` : ""}
       </div>
     </div>
     <div class="ordem-grid">
@@ -174,7 +174,10 @@ function renderOrdens(d) {
     : `<div class="vazio">Nenhuma ordem aberta. Marque "Já coloquei" num flip para acompanhá-lo aqui.</div>`;
 }
 
+let ultimaBusca = 0;
+
 async function carregarOrdens() {
+  ultimaBusca = Date.now();
   try {
     const d = await api("/api/ordens");
     ordensAtivas = d.ordens;
@@ -236,6 +239,20 @@ $("#ordens-lista").addEventListener("submit", (e) => {
 $("#ordens-atualizar").addEventListener("click", async () => {
   await carregarOrdens();
   toast("Preços atualizados");
+});
+
+// Com a aba aberta, o "há quanto tempo" anda sozinho (só cálculo local, sem internet).
+setInterval(() => {
+  document.querySelectorAll("[data-desde]").forEach((el) => { el.textContent = quando(el.dataset.desde); });
+}, 60e3);
+
+// Ao voltar para a aba, busca os preços de novo. Não busca se acabou de buscar,
+// nem com o formulário "Vendi" aberto (apagaria o que você está digitando).
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !ordensAtivas.length) return;
+  if (Date.now() - ultimaBusca < 2 * 60e3) return;
+  if ([...document.querySelectorAll(".vendi-form")].some((f) => !f.hidden)) return;
+  carregarOrdens();
 });
 
 // ---------- utilidades de UI ----------
