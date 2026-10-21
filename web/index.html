@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flip GW2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="pagina">
+
+  <header class="topo">
+    <div class="marca">
+      <span class="marca-moeda" aria-hidden="true"></span>
+      <div>
+        <h1>Flip GW2</h1>
+        <p>Assistente de flips do Trading Post</p>
+      </div>
+    </div>
+    <p class="atualizado" id="atualizado"></p>
+  </header>
+
+  <section class="ordens" id="ordens-sec" hidden>
+    <div class="secao-cab ordens-cab">
+      <div>
+        <h2>Minhas ordens</h2>
+        <p id="ordens-resumo"></p>
+      </div>
+      <button type="button" class="botao-sec" id="ordens-atualizar">Atualizar preços</button>
+    </div>
+    <p class="aviso erro" id="ordens-erro" hidden></p>
+    <div class="lista" id="ordens-lista"></div>
+  </section>
+
+  <form class="entrada" id="form">
+    <label for="ouro" class="entrada-titulo">Quanto ouro você tem para investir?</label>
+    <div class="entrada-linha">
+      <div class="campo-ouro">
+        <i class="coin g" aria-hidden="true"></i>
+        <input id="ouro" name="ouro" type="number" min="1" step="any" inputmode="decimal" placeholder="Ex.: 200" required autocomplete="off">
+        <span>ouro</span>
+      </div>
+      <button type="submit" class="botao" id="botao">Encontrar flips</button>
+    </div>
+    <label class="opcao"><input type="checkbox" id="atualizar"> Buscar dados novos agora (mais lento)</label>
+    <p class="entrada-dica">O plano usa no máximo 80% do seu ouro. O resto fica livre de reserva, para você não ficar sem ouro caso uma venda demore.</p>
+  </form>
+
+  <section class="carregando" id="carregando" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="carregando-texto">Analisando o Trading Post...</p>
+    <p class="sub">A primeira busca leva uns 30 segundos. As próximas são mais rápidas.</p>
+  </section>
+
+  <section class="aviso erro" id="erro" hidden></section>
+
+  <main id="resultado" hidden>
+
+    <section class="resumo" id="resumo"></section>
+
+    <section id="destaque"></section>
+
+    <section id="plano-sec">
+      <div class="secao-cab">
+        <h2>Seu plano completo</h2>
+        <p>Em ordem de prioridade: os primeiros rendem mais. Faça até onde der — cada item é independente. Marque os que já colocou no jogo.</p>
+      </div>
+      <div class="lista" id="plano-lista"></div>
+    </section>
+
+    <details class="extras" id="outros-sec">
+      <summary><span id="outros-titulo">Outros flips aprovados</span><span class="sub">Bons, mas não couberam no plano ou exigem mais cuidado</span></summary>
+      <div class="lista" id="outros-lista"></div>
+    </details>
+
+    <details class="extras">
+      <summary><span>Como o sistema decide</span><span class="sub">Taxas, rotatividade e vereditos</span></summary>
+      <div class="explica" id="explica"></div>
+    </details>
+  </main>
+
+  <footer class="rodape">Dados: DataWars2 (volumes e histórico por hora) e API oficial do Guild Wars 2 (preço atual). Volumes são estimativas.</footer>
+</div>
+
+<template id="tpl-item">
+  <article class="item">
+    <div class="item-cab">
+      <span class="rank"></span>
+      <img class="icone" alt="" loading="lazy">
+      <div class="item-nome">
+        <h3></h3>
+        <span class="veredito"></span>
+      </div>
+      <label class="feito"><input type="checkbox"> <span>Já coloquei</span></label>
+    </div>
+    <div class="item-acao">
+      <div><span class="rot">Buy order</span><span class="val compra"></span></div>
+      <div><span class="rot">Depois venda a</span><span class="val venda"></span></div>
+      <div><span class="rot">Lucro</span><span class="val lucro"></span></div>
+      <div><span class="rot">Tempo estimado</span><span class="val tempo"></span></div>
+    </div>
+    <div class="item-dias"></div>
+    <details class="item-mais">
+      <summary>Por que este item?</summary>
+      <div class="item-detalhe"></div>
+    </details>
+  </article>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>

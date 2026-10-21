@@ -1,0 +1,12 @@
+# Dados pessoais e arquivos gerados: não vão para o git
+cache/
+dados/
+relatorios/
+backup/
+__pycache__/
+build/
+*.spec
+
+# O .exe é grande demais para o git; publique em "Releases" no GitHub se quiser compartilhar
+distribuir/*.exe
+distribuir/*.zip

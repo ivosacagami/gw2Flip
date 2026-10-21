@@ -1,0 +1,27 @@
+FLIP GW2 - Assistente de flips do Trading Post do Guild Wars 2
+==============================================================
+
+COMO USAR
+1. Crie uma pasta só para ele (ex.: Documentos\FlipGW2) e coloque o FlipGW2.exe dentro.
+   Não coloque em "Arquivos de Programas": ele precisa criar arquivos ao lado dele.
+2. Dê dois cliques no FlipGW2.exe. O navegador abre sozinho.
+3. Digite quanto ouro você tem e clique em "Encontrar flips".
+4. Deixe a janela preta aberta enquanto usa. Fechou a janela, o programa encerra.
+
+NA PRIMEIRA VEZ
+O Windows pode mostrar "O Windows protegeu o computador". Isso aparece com
+qualquer programa sem assinatura digital paga. Clique em "Mais informações"
+e depois em "Executar assim mesmo".
+
+PRECISA DE
+- Windows 10 ou 11 (64 bits)
+- Internet (os preços são buscados na hora)
+- Não precisa instalar nada, nem Python.
+
+SUAS ORDENS
+Ao marcar "Já coloquei", a ordem fica gravada e aparece no topo sempre que
+você abrir o programa, com o preço que você pagou e a quanto vender agora.
+Tudo fica na pasta "dados", ao lado do .exe. Nada é enviado para ninguém.
+
+O programa não acessa sua conta do jogo: usa só os preços públicos do
+Trading Post (sites DataWars2 e API oficial do Guild Wars 2).

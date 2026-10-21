@@ -1,0 +1,19 @@
+{
+  "ouro_disponivel": 100,
+  "fracao_max_por_item": 0.1,
+  "roi_min": 0.08,
+  "roi_max": 2.5,
+  "lucro_min_por_flip_cobre": 1000,
+  "volume_min_dia": 10,
+  "fatia_max_do_volume": 0.1,
+  "captura_estimada": 0.25,
+  "ciclo_max_dias": 3,
+  "max_horas_sem_venda": 6,
+  "max_horas_sem_compra": 12,
+  "janela_regularidade_horas": 72,
+  "regularidade_min": 0.4,
+  "candidatos_historico": 80,
+  "top": 25,
+  "cache_bulk_min": 10,
+  "cache_historico_min": 30
+}
