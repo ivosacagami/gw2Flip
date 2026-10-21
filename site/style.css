@@ -298,6 +298,22 @@ h1, h2, h3 { margin: 0; }
   padding: 7px 2px; text-align: right; font-variant-numeric: tabular-nums;
 }
 .vendi-form input.qtd { width: 70px; }
+.vendi-form .previa { flex-basis: 100%; font-size: 13px; color: var(--muted); }
+.previa .pos, .carteira .pos { color: var(--ok); }
+.previa .neg, .carteira .neg { color: var(--risk); }
+
+/* ---------- carteira (versão do navegador) ---------- */
+.carteira { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.carteira .sub { display: block; font-size: 12px; color: var(--dim); margin-top: 2px; }
+.link-btn {
+  background: none; border: 0; padding: 0; margin-left: 6px; font: inherit; color: var(--gold-2);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.link-btn.perigo { color: var(--risk); }
+@media (max-width: 720px) {
+  .carteira { grid-template-columns: 1fr 1fr; }
+  .carteira .cart-lucro { grid-column: 1 / -1; }
+}
 .vendi-form label:focus-within { border-color: var(--gold); }
 
 @media (max-width: 720px) {

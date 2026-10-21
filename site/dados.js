@@ -154,6 +154,7 @@ const Dados = (() => {
 
   const CH_ORDENS = "flipgw2:ordens";
   const CH_HIST = "flipgw2:historico";
+  const CH_CARTEIRA = "flipgw2:carteira";
 
   function lerLista(chave) {
     try {
@@ -171,6 +172,67 @@ const Dados = (() => {
   }
 
   const agoraISO = () => new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
+
+  // ---------- carteira: saldo de ouro (em cobre) e a partir de quando o lucro conta ----------
+
+  function carteira() {
+    try {
+      const v = JSON.parse(localStorage.getItem(CH_CARTEIRA) || "{}");
+      return {
+        saldo: Number.isInteger(v.saldo) ? v.saldo : null,
+        lucro_desde: typeof v.lucro_desde === "string" ? v.lucro_desde : null,
+      };
+    } catch { return { saldo: null, lucro_desde: null }; }
+  }
+
+  function gravarCarteira(c) {
+    try {
+      localStorage.setItem(CH_CARTEIRA, JSON.stringify(c));
+    } catch {
+      throw new Error("O navegador não deixou salvar. Ele pode estar em modo privado ou com o armazenamento cheio.");
+    }
+  }
+
+  /** O ouro digitado em "Quanto ouro você tem" vira o saldo livre. */
+  function definirSaldo(cobre) {
+    gravarCarteira({ ...carteira(), saldo: Math.round(cobre) });
+  }
+
+  /** Soma (ou tira) do saldo. Antes de ter um saldo definido, não faz nada. */
+  function mexerSaldo(delta) {
+    const c = carteira();
+    if (c.saldo == null || !delta) return;
+    gravarCarteira({ ...c, saldo: c.saldo + Math.round(delta) });
+  }
+
+  /** O lucro total volta a 0: só contam as vendas e cancelamentos de agora em diante. */
+  function zerarLucro() {
+    gravarCarteira({ ...carteira(), lucro_desde: agoraISO() });
+  }
+
+  // ---------- contas de cada botão (usadas também na prévia dos formulários) ----------
+
+  /** "Encheu, vou vender": listou `qtd` unidades a `preco`. A taxa de 5% sai na hora. */
+  function simularListagem(o, preco) {
+    const taxa = Motor.taxas(preco)[0] * o.qtd;
+    return { taxa, lucro: Motor.lucroUnitario(o.compra, preco) * o.qtd };
+  }
+
+  /** "Vendi": recebe o preço menos 10%; a taxa de listagem já paga entra proporcional à quantidade. */
+  function simularVenda(o, preco, qtd) {
+    const [listagem, cambio] = Motor.taxas(preco);
+    const taxaPaga = o.taxa_listagem ? Math.round((o.taxa_listagem * qtd) / o.qtd) : 0;
+    const taxaNova = o.taxa_listagem ? 0 : listagem * qtd;  // vendeu sem passar pelo "Encheu"
+    const recebido = (preco - cambio) * qtd;
+    return { recebido, taxaPaga, taxaNova, lucro: recebido - o.compra * qtd - taxaPaga - taxaNova };
+  }
+
+  /** "Cancelei": esperando a compra o jogo devolve o ouro; já comprado, perde a compra e a taxa paga. */
+  function simularCancelamento(o) {
+    return o.status === "comprando"
+      ? { devolvido: o.compra * o.qtd, prejuizo: 0 }
+      : { devolvido: 0, prejuizo: o.compra * o.qtd + (o.taxa_listagem || 0) };
+  }
 
   function novoUid() {
     const b = new Uint8Array(4);
@@ -202,14 +264,20 @@ const Dados = (() => {
       criada: agoraISO(),
       comprado_em: null,
       status: "comprando",
+      preco_listado: null,
+      taxa_listagem: 0,
     };
     const ordens = lerLista(CH_ORDENS);
     ordens.push(ordem);
     gravarLista(CH_ORDENS, ordens);
+    mexerSaldo(-ordem.compra * ordem.qtd);  // a buy order prende o ouro no jogo
     return ordem;
   }
 
-  /** acao: comprado | vendi (preco, qtd) | cancelei | desfazer. */
+  /**
+   * acao: comprado (preco = por quanto listou) | vendi (preco, qtd) | cancelei | desfazer.
+   * Devolve o resultado em cobre ({ taxa, lucro } / { lucro } / { devolvido, prejuizo }) para a tela mostrar.
+   */
   function atualizar(uid, d) {
     const ordens = lerLista(CH_ORDENS);
     const o = ordens.find((x) => x.uid === uid);
@@ -221,21 +289,31 @@ const Dados = (() => {
       hist.push(linha);
       gravarLista(CH_HIST, hist);
     };
+    let resultado = {};
 
     if (d.acao === "comprado") {
+      const preco = intPos(d.preco, "preço de venda");
+      resultado = simularListagem(o, preco);
       o.status = "vendendo";
       o.comprado_em = agora;
+      o.preco_listado = preco;
+      o.taxa_listagem = (o.taxa_listagem || 0) + resultado.taxa;
+      mexerSaldo(-resultado.taxa);
     } else if (d.acao === "vendi") {
-      const preco = intPos(d.preco || o.venda_sugerida, "preço de venda");
+      const preco = intPos(d.preco || o.preco_listado || o.venda_sugerida, "preço de venda");
       const qtd = Math.min(intPos(d.qtd || o.qtd, "quantidade"), o.qtd);
+      const v = simularVenda(o, preco, qtd);
       registrar({
         fim: "vendido", id: o.id, nome: o.nome, qtd,
-        compra: o.compra, venda_sugerida: o.venda_sugerida, venda: preco,
+        compra: o.compra, venda_sugerida: o.venda_sugerida, venda: preco, preco_listado: o.preco_listado || null,
+        taxa_listagem: v.taxaPaga + v.taxaNova, recebido: v.recebido,
         lucro_previsto: Math.round((o.lucro_previsto * qtd) / o.qtd),
-        lucro: Motor.lucroUnitario(o.compra, preco) * qtd,
+        lucro: v.lucro,
         horas_compra_prev: o.horas_compra_prev, horas_venda_prev: o.horas_venda_prev,
         veredito: o.veredito, criada: o.criada, comprado_em: o.comprado_em, vendido_em: agora,
       });
+      mexerSaldo(v.recebido - v.taxaNova);
+      o.taxa_listagem = (o.taxa_listagem || 0) - v.taxaPaga;
       o.qtd -= qtd;
       o.lucro_previsto -= Math.round((o.lucro_previsto * qtd) / (o.qtd + qtd));
       if (o.status === "comprando") {
@@ -243,34 +321,41 @@ const Dados = (() => {
         o.comprado_em = agora;
       }
       if (o.qtd <= 0) tirar();
+      resultado = { lucro: v.lucro };
     } else if (d.acao === "cancelei") {
+      resultado = simularCancelamento(o);
       registrar({
         fim: "cancelado", id: o.id, nome: o.nome, qtd: o.qtd,
-        compra: o.compra, venda_sugerida: o.venda_sugerida,
+        compra: o.compra, venda_sugerida: o.venda_sugerida, preco_listado: o.preco_listado || null,
         lucro_previsto: o.lucro_previsto, status_ao_cancelar: o.status,
+        devolvido: resultado.devolvido, lucro: -resultado.prejuizo,
         veredito: o.veredito, criada: o.criada, comprado_em: o.comprado_em, cancelado_em: agora,
       });
+      mexerSaldo(resultado.devolvido);
       tirar();
     } else if (d.acao === "desfazer") {  // marcou "já coloquei" por engano: some sem ir para o histórico
+      mexerSaldo(o.compra * o.qtd + (o.taxa_listagem || 0));
       tirar();
     } else {
       throw new Error("Ação inválida.");
     }
     gravarLista(CH_ORDENS, ordens);
+    return resultado;
   }
 
+  /** Saldo, ouro preso em ordens e lucro real (vendas menos prejuízos) desde o último "zerar". */
   function resumoHistorico() {
-    let lucro = 0, vendas = 0, cancelados = 0, desde = null;
+    const c = carteira();
+    let lucro = 0, vendas = 0, cancelados = 0;
     for (const h of lerLista(CH_HIST)) {
-      desde = desde || h.criada;
-      if (h.fim === "vendido") {
-        lucro += h.lucro || 0;
-        vendas++;
-      } else {
-        cancelados++;
-      }
+      const quando = h.vendido_em || h.cancelado_em || "";
+      if (c.lucro_desde && quando < c.lucro_desde) continue;
+      lucro += h.lucro || 0;
+      if (h.fim === "vendido") vendas++;
+      else cancelados++;
     }
-    return { lucro, vendas, cancelados, desde };
+    const emOrdens = lerLista(CH_ORDENS).reduce((s, o) => s + o.compra * o.qtd + (o.taxa_listagem || 0), 0);
+    return { lucro, vendas, cancelados, desde: c.lucro_desde, saldo: c.saldo, em_ordens: emOrdens };
   }
 
   const ordensSalvas = () => lerLista(CH_ORDENS);
@@ -324,6 +409,7 @@ const Dados = (() => {
       exportado_em: agoraISO(),
       ordens: lerLista(CH_ORDENS),
       historico: lerLista(CH_HIST),
+      carteira: carteira(),
     };
   }
 
@@ -374,10 +460,19 @@ const Dados = (() => {
 
     gravarLista(CH_ORDENS, atuais.concat(novasOrdens));
     gravarLista(CH_HIST, histFinal);
+    // Saldo do backup só entra se este navegador ainda não tem um
+    const cb = v && v.carteira;
+    if (cb && Number.isInteger(cb.saldo) && carteira().saldo == null) {
+      gravarCarteira({ saldo: cb.saldo, lucro_desde: typeof cb.lucro_desde === "string" ? cb.lucro_desde : null });
+    }
     return { ordens: novasOrdens.length, historico: novasLinhas.length };
   }
 
   Cache.limparVelhos();
 
-  return { fonte, adicionar, atualizar, listar, ordensSalvas, exportar, importar };
+  return {
+    fonte, adicionar, atualizar, listar, ordensSalvas, exportar, importar,
+    carteira, definirSaldo, zerarLucro, resumo: resumoHistorico,
+    simularListagem, simularVenda, simularCancelamento,
+  };
 })();

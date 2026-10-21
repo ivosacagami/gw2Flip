@@ -37,6 +37,24 @@ function horas(h) {
   return `${(h / 24).toFixed(1).replace(".", ",")} dias`;
 }
 
+/** Igual a moeda(), mas em texto puro: "1g 23s 45c". */
+function moedaTxt(cobre) {
+  const neg = cobre < 0;
+  let c = Math.round(Math.abs(cobre));
+  const g = Math.floor(c / 10000), s = Math.floor((c % 10000) / 100);
+  c %= 100;
+  const partes = [];
+  if (g) partes.push(`${g.toLocaleString("pt-BR")}g`);
+  if (g || s) partes.push(`${s}s`);
+  partes.push(`${c}c`);
+  return (neg ? "−" : "") + partes.join(" ");
+}
+
+const resultadoHtml = (v) => v >= 0
+  ? `<b class="pos">lucro de ${moeda(v)}</b>`
+  : `<b class="neg">prejuízo de ${moeda(-v)}</b>`;
+const resultadoTxt = (v) => (v >= 0 ? `lucro de ${moedaTxt(v)}` : `prejuízo de ${moedaTxt(-v)}`);
+
 const pct = (x) => `${Math.round(x * 100)}%`;
 const num = (x) => Math.round(x).toLocaleString("pt-BR");
 const pct1 = (x) => `${(Math.abs(x) * 100).toFixed(1).replace(".", ",")}%`;
@@ -83,6 +101,11 @@ function quando(iso) {
   return `${data} ${hora} · ${idade((Date.now() - t) / 3600e3)}`;
 }
 
+const camposPreco = (p) => `
+      <label><input type="number" min="0" name="g" value="${Math.floor(p / 10000)}"><i class="coin g"></i></label>
+      <label><input type="number" min="0" max="99" name="s" value="${Math.floor((p % 10000) / 100)}"><i class="coin s"></i></label>
+      <label><input type="number" min="0" max="99" name="c" value="${p % 100}"><i class="coin c"></i></label>`;
+
 function cartaoOrdem(o) {
   const avisos = [];
   if (o.superada) {
@@ -118,7 +141,9 @@ function cartaoOrdem(o) {
     </div>
     <div class="ordem-grid">
       <div><span class="rot">Você comprou</span><span class="val">${num(o.qtd)} × ${moeda(o.compra)}</span></div>
-      <div><span class="rot">Venda sugerida na época</span><span class="val">${moeda(o.venda_sugerida)}</span></div>
+      ${o.preco_listado
+        ? `<div><span class="rot">Você listou a</span><span class="val">${moeda(o.preco_listado)}</span></div>`
+        : `<div><span class="rot">Venda sugerida na época</span><span class="val">${moeda(o.venda_sugerida)}</span></div>`}
       <div><span class="rot">Liste agora a</span><span class="val">${o.venda_agora == null ? "—" : moeda(o.venda_agora)}</span></div>
       <div><span class="rot">Mínimo sem prejuízo</span><span class="val">${moeda(o.minimo)}</span></div>
       <div><span class="rot">Lucro se vender agora</span><span class="val">${lucroAgora || "—"}</span></div>
@@ -130,29 +155,52 @@ function cartaoOrdem(o) {
       <button class="botao-sec" data-acao="cancelei">Cancelei</button>
       <button class="botao-sec" data-copiar="${esc(o.nome)}" data-msg="Nome copiado — cole na busca do Trading Post">Copiar nome</button>
     </div>
-    <form class="vendi-form" hidden>
+    ${o.status === "comprando" ? `
+    <form class="vendi-form" data-form="listar" hidden>
+      <span class="rot">Listei para venda, por unidade, a</span>
+      ${camposPreco(o.venda_agora || o.venda_sugerida)}
+      <button type="submit" class="botao-sec ok">Confirmar listagem</button>
+      <button type="button" class="botao-sec" data-acao="fechar-form">Voltar</button>
+      <span class="previa"></span>
+    </form>` : ""}
+    <form class="vendi-form" data-form="vendi" hidden>
       <span class="rot">Vendi por unidade a</span>
-      <label><input type="number" min="0" name="g" value="${Math.floor((o.venda_agora || o.venda_sugerida) / 10000)}"><i class="coin g"></i></label>
-      <label><input type="number" min="0" max="99" name="s" value="${Math.floor(((o.venda_agora || o.venda_sugerida) % 10000) / 100)}"><i class="coin s"></i></label>
-      <label><input type="number" min="0" max="99" name="c" value="${(o.venda_agora || o.venda_sugerida) % 100}"><i class="coin c"></i></label>
+      ${camposPreco(o.preco_listado || o.venda_agora || o.venda_sugerida)}
       <span class="rot">quantidade</span>
       <label><input type="number" min="1" max="${o.qtd}" name="qtd" value="${o.qtd}" class="qtd"></label>
       <button type="submit" class="botao-sec ok">Confirmar venda</button>
-      <button type="button" class="botao-sec" data-acao="fechar-vendi">Voltar</button>
+      <button type="button" class="botao-sec" data-acao="fechar-form">Voltar</button>
+      <span class="previa"></span>
     </form>
   </article>`;
 }
 
+function renderCarteira(r = Dados.resumo()) {
+  const temSaldo = r.saldo != null;
+  $("#cart-saldo").innerHTML = temSaldo ? `<span class="${r.saldo < 0 ? "neg" : ""}">${moeda(r.saldo)}</span>` : moeda(0);
+  $("#cart-saldo-sub").textContent = temSaldo
+    ? (r.saldo < 0 ? "negativo: as ordens passaram do seu ouro" : "ouro na carteira, fora das ordens")
+    : "digite seu ouro abaixo e clique em Encontrar flips";
+  $("#cart-ordens").innerHTML = moeda(r.em_ordens);
+  $("#cart-lucro").innerHTML = `<span class="${r.lucro < 0 ? "neg" : "pos"}">${moeda(r.lucro)}</span>`;
+  const partes = [];
+  if (r.vendas) partes.push(`${r.vendas} venda${r.vendas > 1 ? "s" : ""}`);
+  if (r.cancelados) partes.push(`${r.cancelados} cancelada${r.cancelados > 1 ? "s" : ""}`);
+  const quandoZerou = r.desde ? new Date(r.desde).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
+  $("#cart-lucro-sub").textContent = partes.length
+    ? partes.join(" · ") + (quandoZerou ? ` desde ${quandoZerou}` : "")
+    : (quandoZerou ? `zerado em ${quandoZerou}` : "nenhuma venda ainda");
+  // O campo de ouro acompanha o saldo (menos quando você está digitando nele)
+  if (temSaldo && r.saldo > 0 && document.activeElement !== $("#ouro")) $("#ouro").value = String(r.saldo / 10000);
+}
+
 function renderOrdens(d) {
-  const r = d.resumo;
   const sec = $("#ordens-sec");
-  sec.hidden = !d.ordens.length && !r.vendas;
+  sec.hidden = !d.ordens.length;
   $("#ordens-erro").hidden = !d.erro;
   $("#ordens-erro").textContent = d.erro || "";
-  const desde = r.desde ? new Date(r.desde).toLocaleDateString("pt-BR") : "";
-  $("#ordens-resumo").innerHTML = r.vendas
-    ? `Lucro real registrado: <b class="${r.lucro >= 0 ? "pos" : "neg"}">${moeda(r.lucro)}</b> em ${r.vendas} venda${r.vendas > 1 ? "s" : ""} desde ${desde}.`
-    : "Ficam gravadas aqui até você marcar Vendi ou Cancelei.";
+  $("#ordens-resumo").textContent = "Ficam gravadas aqui até você marcar Vendi ou Cancelei.";
+  renderCarteira(d.resumo);
   $("#ordens-lista").innerHTML = d.ordens.length
     ? d.ordens.map(cartaoOrdem).join("")
     : `<div class="vazio">Nenhuma ordem aberta. Marque "Já coloquei" num flip para acompanhá-lo aqui.</div>`;
@@ -163,6 +211,7 @@ let ultimaBusca = 0;
 async function carregarOrdens() {
   ultimaBusca = Date.now();
   ordensAtivas = Dados.ordensSalvas();
+  renderCarteira();
   const d = await Dados.listar(CFG);
   ordensAtivas = d.ordens;
   renderOrdens(d);
@@ -170,8 +219,9 @@ async function carregarOrdens() {
 
 async function acaoOrdem(uid, corpo, msg) {
   try {
-    Dados.atualizar(uid, corpo);
-    toast(msg);
+    const r = Dados.atualizar(uid, corpo);
+    if (typeof msg === "function") toast(msg(r), 5000);
+    else toast(msg);
     await carregarOrdens();
     sincronizarMarcas();
   } catch (e) {
@@ -195,28 +245,91 @@ $("#ordens-lista").addEventListener("click", (e) => {
   const card = b.closest(".ordem");
   const uid = card.dataset.uid;
   const acao = b.dataset.acao;
-  if (acao === "comprado") acaoOrdem(uid, { acao: "comprado" }, "Marcado como comprado");
-  else if (acao === "abrir-vendi") { $(".vendi-form", card).hidden = false; $(".ordem-acoes", card).hidden = true; }
-  else if (acao === "fechar-vendi") { $(".vendi-form", card).hidden = true; $(".ordem-acoes", card).hidden = false; }
-  else if (acao === "cancelei") {
-    if (b.dataset.confirmar) acaoOrdem(uid, { acao: "cancelei" }, "Ordem cancelada");
-    else {
+  const abrir = (qual) => {
+    const f = $(`form[data-form="${qual}"]`, card);
+    f.hidden = false;
+    $(".ordem-acoes", card).hidden = true;
+    atualizarPrevia(f);
+  };
+  if (acao === "comprado") abrir("listar");
+  else if (acao === "abrir-vendi") abrir("vendi");
+  else if (acao === "fechar-form") {
+    card.querySelectorAll("form").forEach((f) => { f.hidden = true; });
+    $(".ordem-acoes", card).hidden = false;
+  } else if (acao === "cancelei") {
+    if (b.dataset.confirmar) {
+      acaoOrdem(uid, { acao: "cancelei" }, (r) => (r.prejuizo
+        ? `Ordem cancelada: prejuízo de ${moedaTxt(r.prejuizo)}`
+        : `Ordem cancelada: ${moedaTxt(r.devolvido)} voltaram ao saldo`));
+    } else {
+      const o = ordensAtivas.find((x) => x.uid === uid);
+      const c = Dados.simularCancelamento(o);
       b.dataset.confirmar = "1";
-      b.textContent = "Confirmar cancelamento?";
+      b.textContent = c.prejuizo
+        ? `Confirmar? Prejuízo de ${moedaTxt(c.prejuizo)}`
+        : `Confirmar? Volta ${moedaTxt(c.devolvido)} ao saldo`;
       b.classList.add("perigo");
       setTimeout(() => { delete b.dataset.confirmar; b.textContent = "Cancelei"; b.classList.remove("perigo"); }, 4000);
     }
   }
 });
 
+function lerForm(f) {
+  const v = (n) => (f.elements[n] ? Math.max(0, parseInt(f.elements[n].value, 10) || 0) : 0);
+  return { preco: v("g") * 10000 + v("s") * 100 + v("c"), qtd: v("qtd") };
+}
+
+/** Mostra, enquanto você digita, quanto vai pagar de taxa e qual será o resultado. */
+function atualizarPrevia(f) {
+  const o = ordensAtivas.find((x) => x.uid === f.closest(".ordem").dataset.uid);
+  const { preco, qtd } = lerForm(f);
+  const el = $(".previa", f);
+  if (!o || !el) return;
+  if (!preco) { el.textContent = ""; return; }
+  if (f.dataset.form === "listar") {
+    const r = Dados.simularListagem(o, preco);
+    el.innerHTML = `A taxa de listagem de ${moeda(r.taxa)} sai do saldo agora. Se vender tudo a esse preço: ${resultadoHtml(r.lucro)}.`;
+  } else {
+    const n = Math.min(Math.max(1, qtd || o.qtd), o.qtd);
+    const r = Dados.simularVenda(o, preco, n);
+    el.innerHTML = `Você recebe ${moeda(r.recebido)}${r.taxaNova ? ` (menos ${moeda(r.taxaNova)} de taxa de listagem)` : ""}. Resultado: ${resultadoHtml(r.lucro)}.`;
+  }
+}
+
+$("#ordens-lista").addEventListener("input", (e) => {
+  const f = e.target.closest("form");
+  if (f) atualizarPrevia(f);
+});
+
 $("#ordens-lista").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = e.target;
-  const card = f.closest(".ordem");
-  const v = (n) => Math.max(0, parseInt(f.elements[n].value, 10) || 0);
-  const preco = v("g") * 10000 + v("s") * 100 + v("c");
-  if (!preco) { toast("Informe o preço de venda"); return; }
-  acaoOrdem(card.dataset.uid, { acao: "vendi", preco, qtd: v("qtd") }, "Venda registrada no histórico");
+  const uid = f.closest(".ordem").dataset.uid;
+  const { preco, qtd } = lerForm(f);
+  if (!preco) { toast("Informe o preço"); return; }
+  if (f.dataset.form === "listar") {
+    acaoOrdem(uid, { acao: "comprado", preco },
+      (r) => `Listado. Taxa paga: ${moedaTxt(r.taxa)}. Se vender tudo: ${resultadoTxt(r.lucro)}`);
+  } else {
+    acaoOrdem(uid, { acao: "vendi", preco, qtd }, (r) => `Venda registrada: ${resultadoTxt(r.lucro)}`);
+  }
+});
+
+$("#zerar-lucro").addEventListener("click", (e) => {
+  const b = e.currentTarget;
+  if (b.dataset.confirmar) {
+    Dados.zerarLucro();
+    renderCarteira();
+    toast("Lucro zerado. Daqui em diante conta do zero.");
+    delete b.dataset.confirmar;
+    b.textContent = "Zerar";
+    b.classList.remove("perigo");
+    return;
+  }
+  b.dataset.confirmar = "1";
+  b.textContent = "Confirmar? Volta a 0";
+  b.classList.add("perigo");
+  setTimeout(() => { delete b.dataset.confirmar; b.textContent = "Zerar"; b.classList.remove("perigo"); }, 4000);
 });
 
 $("#ordens-atualizar").addEventListener("click", async () => {
@@ -230,22 +343,22 @@ setInterval(() => {
 }, 60e3);
 
 // Ao voltar para a aba, busca os preços de novo. Não busca se acabou de buscar,
-// nem com o formulário "Vendi" aberto (apagaria o que você está digitando).
+// nem com um formulário aberto (apagaria o que você está digitando).
 document.addEventListener("visibilitychange", () => {
   if (document.hidden || !ordensAtivas.length) return;
   if (Date.now() - ultimaBusca < 2 * 60e3) return;
-  if ([...document.querySelectorAll(".vendi-form")].some((f) => !f.hidden)) return;
+  if ([...document.querySelectorAll(".ordem form")].some((f) => !f.hidden)) return;
   carregarOrdens();
 });
 
 // ---------- utilidades de UI ----------
 
-function toast(msg) {
+function toast(msg, ms = 1600) {
   const t = document.createElement("div");
   t.className = "toast";
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 1600);
+  setTimeout(() => t.remove(), ms);
 }
 
 function copiar(texto, msg) {
@@ -502,6 +615,8 @@ async function analisar(ev) {
   carregando(true);
   try {
     const cfg = { ...CFG, ouro_disponivel: Number(ouro.replace(",", ".")) };
+    Dados.definirSaldo(cfg.ouro_disponivel * 10000);
+    renderCarteira();
     const fonte = Dados.fonte(cfg, !$("#atualizar").checked);
     const { res, plano, stats } = await Motor.executar(cfg, fonte, (m) => { $("#carregando-texto").textContent = m; });
     const d = {
@@ -572,5 +687,6 @@ $("#importar-arq").addEventListener("change", async (e) => {
 
 $("#form").addEventListener("submit", analisar);
 try { $("#ouro").value = localStorage.getItem("ouro") || ""; } catch { /* sem storage */ }
+renderCarteira();  // se já tem saldo, ele aparece no campo
 $("#ouro").focus();
 carregarOrdens();

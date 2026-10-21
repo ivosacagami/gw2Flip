@@ -25,6 +25,16 @@
     <p class="atualizado" id="atualizado"></p>
   </header>
 
+  <section class="carteira" id="carteira" aria-label="Sua carteira">
+    <div class="stat"><span class="rot">Saldo livre</span><span class="num" id="cart-saldo"></span>
+      <span class="sub" id="cart-saldo-sub"></span></div>
+    <div class="stat"><span class="rot">Preso em ordens</span><span class="num" id="cart-ordens"></span>
+      <span class="sub">compras e taxas de listagem já pagas</span></div>
+    <div class="stat cart-lucro"><span class="rot">Lucro real registrado</span><span class="num" id="cart-lucro"></span>
+      <span class="sub"><span id="cart-lucro-sub"></span>
+        <button type="button" class="link-btn" id="zerar-lucro">Zerar</button></span></div>
+  </section>
+
   <section class="ordens" id="ordens-sec" hidden>
     <div class="secao-cab ordens-cab">
       <div>
@@ -48,6 +58,8 @@
       <button type="submit" class="botao" id="botao">Encontrar flips</button>
     </div>
     <label class="opcao"><input type="checkbox" id="atualizar"> Buscar dados novos agora (mais lento)</label>
+    <p class="entrada-dica">O valor que você analisa vira o seu saldo livre. Cada ordem que você marca desconta dele e cada venda devolve o dinheiro.
+      Se o ouro no jogo estiver diferente, digite o valor certo e analise de novo.</p>
     <p class="entrada-dica">O plano usa no máximo 80% do seu ouro. O resto fica livre de reserva, para você não ficar sem ouro caso uma venda demore.</p>
   </form>
 
