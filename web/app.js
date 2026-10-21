@@ -83,10 +83,20 @@ async function marcarColocado(it, sim) {
 }
 
 function idade(h) {
-  if (h < 1) return "há pouco";
-  if (h < 24) return `há ${Math.round(h)}h`;
-  const d = Math.floor(h / 24);
-  return d === 1 ? "há 1 dia" : `há ${d} dias`;
+  if (h < 1) return `há ${Math.max(1, Math.round(h * 60))}min`;
+  if (h < 24) return `há ${Math.floor(h)}h`;
+  const d = Math.floor(h / 24), resto = Math.floor(h % 24);
+  return resto ? `há ${d}d ${resto}h` : `há ${d}d`;
+}
+
+/** "19/10 14:32 · há 2d 5h" — data e hora locais de quando algo foi marcado. */
+function quando(iso) {
+  const t = Date.parse(iso);
+  if (!t) return "";
+  const dt = new Date(t);
+  const data = dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const hora = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${data} ${hora} · ${idade((Date.now() - t) / 3600e3)}`;
 }
 
 function cartaoOrdem(o) {
@@ -118,7 +128,8 @@ function cartaoOrdem(o) {
       <img class="icone" src="${esc(o.img)}" alt="" onerror="this.style.visibility='hidden'">
       <div class="item-nome">
         <h3 title="${esc(o.nome)}">${esc(o.nome)}</h3>
-        ${status}<span class="sub ordem-idade">colocada ${idade(o.idade_horas)}</span>
+        ${status}<span class="sub ordem-idade" title="Quando você marcou &quot;Já coloquei&quot;">colocada ${quando(o.criada)}</span>
+        ${o.comprado_em ? `<span class="sub ordem-idade" title="Quando você marcou que a compra encheu">· comprada ${quando(o.comprado_em)}</span>` : ""}
       </div>
     </div>
     <div class="ordem-grid">
